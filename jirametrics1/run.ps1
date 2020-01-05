@@ -48,37 +48,46 @@ if (($server) -and ($project) -and ($assignee) -and ($username) -and ($userpassw
         Write-Host "opening Jira connection"
         $jiraoptions = "https://" + $server
         Set-JiraConfigServer -Server $jiraoptions
-#   username = Atlassian Cloud Jira Server user ID email address, userpassword = an API token generated under that user ID
         $userpassword_secure = ConvertTo-SecureString $userpassword -AsPlainText -Force
-        $jiraconn = New-JiraSession -Credential (New-Object System.Management.Automation.PSCredential($username, $userpassword_secure))
-        Write-Host "running query"
-        $issues = Get-JiraIssue -Query "project in ($project) and assignee in ($assignee) and statusCategory in (""In Progress"") order by createdDate desc"
-    
-        $status = [HttpStatusCode]::OK
-        $statusstr = "successful connection and query: num In Progress issues = " + $issues.Count.ToString()
+#   username = Atlassian Cloud Jira Server user ID email address, userpassword = an API token generated under that user ID
+        $jiraconn = New-JiraSession -Credential (New-Object System.Management.Automation.PSCredential($username, $userpassword_secure)) -ErrorAction:SilentlyContinue
+#   were we able to connect?
+#   (we have to use SilentlyContinue since if there is a credentials problem the JiraPS library spits out a lot of error logging, even with our exception handler)
+        if ($jiraconn)
+        {
+            Write-Host "successful connection"
+            Write-Host "running query"
+            $issues = Get-JiraIssue -Query "project in ($project) and assignee in ($assignee) and statusCategory in (""In Progress"")"
+            $status = [HttpStatusCode]::OK
+            $statusstr = "successful query: number of In Progress issues for $assignee = " + $issues.Count.ToString()
+#   always attempt to close the connection regardless
+            Write-Host $statusstr
+            Write-Host "closing Jira connection"
+            Remove-JiraSession $jiraconn -ErrorAction:SilentlyContinue
+        }
+#   if not, adjust the HTTP status code and string appropriately
+        else
+        {
+            $status = [HttpStatusCode]::Forbidden
+            $statusstr = "unsuccessful connection (username/userpassword variables invalid?): no data"
+        }
     }
+#   in case something unexpected happens
     catch
     {
         $status = [HttpStatusCode]::InternalServerError
         $statusstr = "exception occurred during connection or query: no data"
     }
-    finally
-    {
-        Write-Host $statusstr
-        Write-Host "closing Jira connection"
-        Remove-JiraSession $jiraconn
-    }
-
 }
+
 else {
     $status = [HttpStatusCode]::BadRequest
     $statusstr = "error retrieving variables: please pass the variables as either GET or POST"
 }
 
-# Associate values to output bindings by calling 'Push-OutputBinding'.
-Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
+Write-Host "ending processing"
+#   create HTTP response
+Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{ 
     StatusCode = $status
     Body = $statusstr
 })
-
-Write-Host "ending processing"
