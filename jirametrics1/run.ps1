@@ -51,7 +51,7 @@ if (($server) -and ($project) -and ($assignee) -and ($username) -and ($userpassw
 #   username = Atlassian Cloud Jira Server user ID email address, userpassword = an API token generated under that user ID
         $userpassword_secure = ConvertTo-SecureString $userpassword -AsPlainText -Force
         $jiraconn = New-JiraSession -Credential (New-Object System.Management.Automation.PSCredential($username, $userpassword_secure))
-        Write-Host "running Jira query"
+        Write-Host "running query"
         $issues = Get-JiraIssue -Query "project in ($project) and assignee in ($assignee) and statusCategory in (""In Progress"") order by createdDate desc"
     
         $status = [HttpStatusCode]::OK
@@ -80,3 +80,5 @@ Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
     StatusCode = $status
     Body = $statusstr
 })
+
+Write-Host "ending processing"
