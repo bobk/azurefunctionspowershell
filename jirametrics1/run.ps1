@@ -90,4 +90,4 @@ Write-Host "ending processing"
 Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{ 
     StatusCode = $status
     Body = $statusstr
-})
+}) 
